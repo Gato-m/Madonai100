@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { TouchableOpacity, View } from "react-native";
 import {
   ThemedCard,
   ThemedHeader,
@@ -7,6 +9,7 @@ import {
 } from "../../components";
 
 import { useTheme } from "@shopify/restyle";
+import { router } from "expo-router";
 import { ScrollView } from "react-native";
 import { useThemeMode } from "../../providers/ThemeProvider";
 import { Theme } from "../../theme";
@@ -35,6 +38,19 @@ export default function Profile() {
       <ScrollView>
         <ThemedHeader color="text">Krāsu Palete</ThemedHeader>
         <ThemedSpacer size="s" />
+
+        <View style={{ position: "absolute", top: 24, right: 24 }}>
+          <TouchableOpacity
+            onPress={() => router.push("/(modals)/about")}
+            accessibilityLabel="About"
+          >
+            <Ionicons
+              name="information-circle-outline"
+              size={28}
+              color="#007AFF"
+            />
+          </TouchableOpacity>
+        </View>
 
         {colorKeys.map((key) => {
           const bg = theme.colors[key];

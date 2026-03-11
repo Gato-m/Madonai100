@@ -13,7 +13,7 @@ export function ThemedHeader({ children }: { children: React.ReactNode }) {
     variant?: keyof Theme["textVariants"];
   };
   return (
-    <Box backgroundColor="background" padding="m">
+    <Box padding="m">
       <ThemedText variant="header" color="text">
         {children}
       </ThemedText>

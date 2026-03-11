@@ -1,3 +1,4 @@
+export * from "./Mlogo";
 export * from "./ThemedButton";
 export * from "./ThemedCard";
 export * from "./ThemedHeader";
