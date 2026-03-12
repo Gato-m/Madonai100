@@ -83,11 +83,11 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="karte"
         options={{
-          title: "PROFILE",
+          title: "KARTE",
           tabBarIcon: ({ color }) => (
-            <TabBarIcon name="person-outline" color={color} />
+            <TabBarIcon name="map-outline" color={color} />
           ),
         }}
       />

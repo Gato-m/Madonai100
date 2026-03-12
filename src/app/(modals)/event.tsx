@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "@shopify/restyle";
+import { Image as ExpoImage } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useEffect } from "react";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ThemedText, ThemedView } from "../../components";
 import { useEvents } from "../../hooks/useAirtable";
 import { Theme } from "../../theme";
@@ -88,6 +90,14 @@ export default function EventModal() {
   const { events, isLoading, error } = useEvents();
 
   const event = events.find((item) => item.id === eventId);
+  const imageUrl = event?.fields.attēls?.[0]?.url;
+
+  useEffect(() => {
+    if (imageUrl) {
+      void ExpoImage.prefetch(imageUrl, "memory-disk");
+    }
+  }, [imageUrl]);
+
   const start = formatEventTime(event?.fields.sākums);
   const end = formatEventTime(event?.fields.beigas);
   const category = event?.fields.kategorija?.trim() || "Cita kategorija";
@@ -120,7 +130,7 @@ export default function EventModal() {
               style={[
                 styles.circleButton,
                 {
-                  borderColor: theme.colors.primaryDark,
+                  borderColor: theme.colors.gray400,
                   backgroundColor: theme.colors.primary,
                 },
               ]}
@@ -153,11 +163,13 @@ export default function EventModal() {
 
           {!!event && (
             <>
-              {!!event.fields.attēls?.[0]?.url ? (
-                <Image
-                  source={{ uri: event.fields.attēls[0].url }}
+              {!!imageUrl ? (
+                <ExpoImage
+                  source={{ uri: imageUrl }}
                   style={styles.image}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  cachePolicy="memory-disk"
+                  transition={120}
                 />
               ) : (
                 <View
@@ -174,11 +186,22 @@ export default function EventModal() {
                 </View>
               )}
 
-              <ThemedText
-                style={[styles.timeText, { color: theme.colors.gray800 }]}
+              <View
+                style={[
+                  styles.timeChip,
+                  {
+                    backgroundColor: theme.colors.accent,
+                    borderColor: theme.colors.primaryDark,
+                  },
+                ]}
               >
-                {`${start ?? "--:--"}${end ? ` - ${end}` : ""}`}
-              </ThemedText>
+                <ThemedText
+                  variant="small"
+                  style={[styles.timeChipText, { color: theme.colors.white }]}
+                >
+                  {`${start ?? "--:--"}${end ? ` - ${end}` : ""}`}
+                </ThemedText>
+              </View>
 
               <ThemedText style={styles.titleText}>
                 {event.fields.nosaukums}
@@ -231,9 +254,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  timeText: {
+  timeChip: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    marginTop: 10,
+  },
+  timeChipText: {
     fontWeight: "700",
-    fontSize: 20,
+    fontSize: 14,
   },
   categoryRow: {
     flexDirection: "row",

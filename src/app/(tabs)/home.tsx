@@ -9,12 +9,7 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import {
-  ThemedCard,
-  ThemedHeader,
-  ThemedText,
-  ThemedView,
-} from "../../components";
+import { ThemedCard, ThemedText, ThemedView } from "../../components";
 import { useEvents } from "../../hooks/useAirtable";
 import { Theme } from "../../theme";
 
@@ -47,67 +42,6 @@ function formatEventTime(dateString?: string): string | null {
   const parsed = new Date(dateString);
   if (Number.isNaN(parsed.getTime())) return null;
   return eventTimeFormatter.format(parsed);
-}
-
-function getCategoryIconName(
-  category?: string,
-): keyof typeof Ionicons.glyphMap {
-  const normalized = (category ?? "").toLowerCase();
-
-  if (
-    normalized.includes("muz") ||
-    normalized.includes("mūz") ||
-    normalized.includes("music") ||
-    normalized.includes("koncert") ||
-    normalized.includes("dj")
-  ) {
-    return "musical-notes-outline";
-  }
-
-  if (
-    normalized.includes("kino") ||
-    normalized.includes("film") ||
-    normalized.includes("movie")
-  ) {
-    return "film-outline";
-  }
-
-  if (
-    normalized.includes("edien") ||
-    normalized.includes("ēdien") ||
-    normalized.includes("food") ||
-    normalized.includes("restoran")
-  ) {
-    return "restaurant-outline";
-  }
-
-  if (
-    normalized.includes("sports") ||
-    normalized.includes("sport") ||
-    normalized.includes("fitness")
-  ) {
-    return "football-outline";
-  }
-
-  if (
-    normalized.includes("maksla") ||
-    normalized.includes("māksla") ||
-    normalized.includes("art") ||
-    normalized.includes("izstade") ||
-    normalized.includes("izstāde")
-  ) {
-    return "color-palette-outline";
-  }
-
-  if (
-    normalized.includes("lekc") ||
-    normalized.includes("workshop") ||
-    normalized.includes("meistarklas")
-  ) {
-    return "book-outline";
-  }
-
-  return "calendar-outline";
 }
 
 export default function HomeScreen() {
@@ -148,8 +82,6 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.screen}>
-      <ThemedHeader>Programma</ThemedHeader>
-
       <View style={styles.chipsRow}>
         <ScrollView
           horizontal
@@ -197,8 +129,7 @@ export default function HomeScreen() {
         renderItem={({ item }) => {
           const start = formatEventTime(item.fields.sākums);
           const end = formatEventTime(item.fields.beigas);
-          const category = item.fields.kategorija?.trim() || "Cita kategorija";
-          const iconName = getCategoryIconName(item.fields.kategorija);
+          const timeLabel = `${start ?? "--:--"}${end ? ` - ${end}` : ""}`;
 
           return (
             <ThemedCard
@@ -217,49 +148,38 @@ export default function HomeScreen() {
             >
               <View style={styles.eventContentRow}>
                 <View style={styles.eventMainColumn}>
-                  <View style={styles.categoryRow}>
-                    <Ionicons
-                      name={iconName}
-                      size={16}
-                      color={theme.colors.accent}
-                      style={styles.categoryIcon}
-                    />
+                  <View
+                    style={[
+                      styles.timeRow,
+                      {
+                        backgroundColor: theme.colors.accent,
+                        borderColor: theme.colors.primaryDark,
+                      },
+                    ]}
+                  >
                     <ThemedText
                       variant="small"
-                      style={{ color: theme.colors.gray800 }}
+                      style={[
+                        styles.timeLabelText,
+                        { color: theme.colors.white },
+                      ]}
                     >
-                      {category}
+                      {timeLabel}
                     </ThemedText>
                   </View>
 
                   <ThemedText style={styles.eventTitle}>
                     {item.fields.nosaukums}
                   </ThemedText>
-
-                  {!!item.fields.apraksts && (
-                    <ThemedText variant="small" style={styles.eventDescription}>
-                      {item.fields.apraksts}
-                    </ThemedText>
-                  )}
                 </View>
 
                 <View style={styles.eventRightColumn}>
-                  {(start || end) && (
-                    <ThemedText
-                      variant="small"
-                      style={[styles.timeText, { color: theme.colors.gray800 }]}
-                    >
-                      {start ?? "--:--"}
-                      {end ? ` - ${end}` : ""}
-                    </ThemedText>
-                  )}
-
                   <View style={styles.actionsRow}>
                     <Pressable
                       style={[
                         styles.circleButton,
                         {
-                          borderColor: theme.colors.primaryDark,
+                          borderColor: theme.colors.gray400,
                           backgroundColor: theme.colors.primary,
                         },
                       ]}
@@ -277,7 +197,7 @@ export default function HomeScreen() {
                       style={[
                         styles.circleButton,
                         {
-                          borderColor: theme.colors.primaryDark,
+                          borderColor: theme.colors.gray400,
                           backgroundColor: theme.colors.primary,
                         },
                       ]}
@@ -344,7 +264,7 @@ const styles = StyleSheet.create({
   eventContentRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: 10,
   },
   eventMainColumn: {
@@ -353,24 +273,24 @@ const styles = StyleSheet.create({
   },
   eventRightColumn: {
     alignItems: "flex-end",
+    justifyContent: "center",
     gap: 10,
   },
   eventTitle: {
     fontSize: 18,
   },
-  eventDescription: {
-    lineHeight: 18,
-  },
-  categoryRow: {
+  timeRow: {
     flexDirection: "row",
     alignItems: "center",
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
   },
-  categoryIcon: {
-    marginRight: 6,
-  },
-  timeText: {
+  timeLabelText: {
     fontWeight: "700",
-    textAlign: "right",
+    fontSize: 14,
   },
   actionsRow: {
     flexDirection: "row",
