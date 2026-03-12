@@ -9,7 +9,6 @@ export default function ModalsLayout() {
     <Stack
       screenOptions={{
         presentation: "modal",
-        animation: "slide_from_bottom",
 
         headerStyle: {
           backgroundColor: theme.colors.background,
@@ -18,7 +17,6 @@ export default function ModalsLayout() {
           color: theme.colors.text,
         },
 
-        // 🔥 ŠIS ir kritiski — jābūt tieši šeit
         headerTintColor: theme.colors.text,
       }}
     />

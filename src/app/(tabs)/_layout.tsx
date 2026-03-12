@@ -36,6 +36,7 @@ export default function TabsLayout() {
           height: tabBarHeight,
           paddingBottom: insets.bottom,
           paddingTop: 45,
+          paddingHorizontal: 24,
         },
         tabBarBackground: () => (
           <Image
@@ -66,7 +67,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: "Programma",
+          title: "PROGRAMMA",
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="home-outline" color={color} />
           ),
@@ -75,7 +76,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: "SEARCH",
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="search-outline" color={color} />
           ),
@@ -84,7 +85,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: "PROFILE",
           tabBarIcon: ({ color }) => (
             <TabBarIcon name="person-outline" color={color} />
           ),
