@@ -1,9 +1,21 @@
 import { useEvents } from "@/hooks/useAirtable";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "@shopify/restyle";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Dimensions,
+  Easing,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import MapView, { Marker, Region, UrlTile } from "react-native-maps";
 import { SvgXml } from "react-native-svg";
 import { WebView } from "react-native-webview";
+import { Theme } from "../../theme";
 
 const SIMPLE_TILE_URL =
   "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png";
@@ -12,6 +24,18 @@ const MARKER_WIDTH = 32;
 const MARKER_HEIGHT = 42;
 const SMALL_MARKER_SCALE = 0.82;
 const CLUSTERING_LAT_DELTA_THRESHOLD = 0.05;
+const SHEET_HEIGHT = Math.round(Dimensions.get("window").height * 0.34);
+
+const eventTimeFormatter = new Intl.DateTimeFormat("lv-LV", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const eventDateFormatter = new Intl.DateTimeFormat("lv-LV", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 const MARKER_ICON_BY_TYPE = {
   default:
@@ -71,6 +95,22 @@ function resolveMarkerIconType(category?: string): MarkerIconType {
   return "default";
 }
 
+function formatEventTime(dateString?: string): string | null {
+  if (!dateString) return null;
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return eventTimeFormatter.format(parsed);
+}
+
+function formatEventDate(dateString?: string): string | null {
+  if (!dateString) return null;
+
+  const parsed = new Date(dateString);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return eventDateFormatter.format(parsed);
+}
+
 function buildMarkerSvg(iconType: MarkerIconType): string {
   const iconSvg = MARKER_ICON_BY_TYPE[iconType] ?? MARKER_ICON_BY_TYPE.default;
 
@@ -102,6 +142,10 @@ type EventMarker = {
   latitude: number;
   longitude: number;
   iconType: MarkerIconType;
+  description: string | undefined;
+  category: string | undefined;
+  start: string | undefined;
+  end: string | undefined;
 };
 
 type ClusteredItem =
@@ -273,6 +317,15 @@ function buildAndroidLeafletHtml(markers: EventMarker[]): string {
           icon: markerIcon
         });
 
+        marker.on('click', () => {
+          if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'markerPress',
+              id: item.id
+            }));
+          }
+        });
+
         if (item.title) {
           marker.bindTooltip(item.title, {
             direction: 'top',
@@ -293,9 +346,15 @@ function buildAndroidLeafletHtml(markers: EventMarker[]): string {
 
 export default function MapScreen() {
   const { events } = useEvents();
+  const theme = useTheme<Theme>();
   const mapRef = useRef<MapView | null>(null);
   const webViewRef = useRef<WebView | null>(null);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
+  const [displayedEvent, setDisplayedEvent] = useState<EventMarker | null>(
+    null,
+  );
+  const [isSheetVisible, setIsSheetVisible] = useState(false);
+  const sheetTranslateY = useRef(new Animated.Value(SHEET_HEIGHT)).current;
 
   const eventMarkers = useMemo<EventMarker[]>(() => {
     return events
@@ -313,6 +372,10 @@ export default function MapScreen() {
           latitude,
           longitude,
           iconType: resolveMarkerIconType(event.fields.kategorija),
+          description: event.fields.apraksts,
+          category: event.fields.kategorija,
+          start: event.fields.sākums,
+          end: event.fields.beigas,
         };
       })
       .filter((marker): marker is EventMarker => marker !== null);
@@ -339,6 +402,76 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion(INITIAL_REGION, 300);
   }, []);
 
+  const handleMapMessage = useCallback(
+    (event: { nativeEvent: { data: string } }) => {
+      try {
+        const payload = JSON.parse(event.nativeEvent.data) as {
+          type?: string;
+          id?: string;
+        };
+
+        if (payload.type !== "markerPress" || !payload.id) return;
+
+        const tappedEvent = eventMarkers.find((item) => item.id === payload.id);
+        if (tappedEvent) {
+          setDisplayedEvent(tappedEvent);
+
+          if (!isSheetVisible) {
+            setIsSheetVisible(true);
+            sheetTranslateY.setValue(SHEET_HEIGHT);
+            Animated.timing(sheetTranslateY, {
+              toValue: 0,
+              duration: 260,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }).start();
+          }
+        }
+      } catch {
+        // Ignore malformed messages from web content.
+      }
+    },
+    [eventMarkers, isSheetVisible, sheetTranslateY],
+  );
+
+  const openEventSheet = useCallback(
+    (event: EventMarker) => {
+      setDisplayedEvent(event);
+
+      if (!isSheetVisible) {
+        setIsSheetVisible(true);
+        sheetTranslateY.setValue(SHEET_HEIGHT);
+        Animated.timing(sheetTranslateY, {
+          toValue: 0,
+          duration: 260,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+      }
+    },
+    [isSheetVisible, sheetTranslateY],
+  );
+
+  const closeEventSheet = useCallback(() => {
+    if (!isSheetVisible) return;
+
+    Animated.timing(sheetTranslateY, {
+      toValue: SHEET_HEIGHT,
+      duration: 220,
+      easing: Easing.in(Easing.cubic),
+      useNativeDriver: true,
+    }).start(() => {
+      setIsSheetVisible(false);
+      setDisplayedEvent(null);
+      sheetTranslateY.setValue(SHEET_HEIGHT);
+    });
+  }, [isSheetVisible, sheetTranslateY]);
+
+  const eventStart = formatEventTime(displayedEvent?.start);
+  const eventEnd = formatEventTime(displayedEvent?.end);
+  const eventDate = formatEventDate(displayedEvent?.start);
+  const eventTimeLabel = `${eventStart ?? "--:--"}${eventEnd ? ` - ${eventEnd}` : ""}`;
+
   if (Platform.OS === "android") {
     return (
       <View style={styles.container}>
@@ -347,6 +480,7 @@ export default function MapScreen() {
           style={styles.map}
           originWhitelist={["*"]}
           source={{ html: androidLeafletHtml }}
+          onMessage={handleMapMessage}
         />
         <Pressable
           onPress={handleResetView}
@@ -354,8 +488,69 @@ export default function MapScreen() {
           accessibilityRole="button"
           accessibilityLabel="Reset map view"
         >
-          <Text style={styles.resetButtonIcon}>◎</Text>
+          <Ionicons name="contract-outline" size={20} color="#1f2937" />
         </Pressable>
+        {isSheetVisible && !!displayedEvent && (
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: "#ffffff",
+                borderColor: theme.colors.primaryDark,
+                transform: [{ translateY: sheetTranslateY }],
+              },
+            ]}
+          >
+            <View style={styles.sheetHandle} />
+            <View style={styles.sheetTopRow}>
+              <Text
+                style={[styles.sheetDateText, { color: theme.colors.gray800 }]}
+              >
+                {eventDate ?? "Datums nav pieejams"}
+              </Text>
+              <Pressable
+                onPress={closeEventSheet}
+                style={[
+                  styles.sheetCloseButton,
+                  {
+                    borderColor: theme.colors.gray400,
+                    backgroundColor: "#ffffff",
+                  },
+                ]}
+              >
+                <Ionicons
+                  name="close-outline"
+                  size={18}
+                  color={theme.colors.accent}
+                />
+              </Pressable>
+            </View>
+            <View
+              style={[
+                styles.timeChip,
+                {
+                  backgroundColor: theme.colors.accent,
+                  borderColor: theme.colors.primaryDark,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.timeChipText, { color: theme.colors.white }]}
+              >
+                {eventTimeLabel}
+              </Text>
+            </View>
+            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>
+              {displayedEvent.title}
+            </Text>
+            <Text
+              style={[styles.sheetDescription, { color: theme.colors.gray800 }]}
+            >
+              {displayedEvent.description?.trim() ||
+                "Papildteksts nav pieejams."}
+            </Text>
+          </Animated.View>
+        )}
       </View>
     );
   }
@@ -393,6 +588,26 @@ export default function MapScreen() {
                   latitude: item.latitude,
                   longitude: item.longitude,
                 }}
+                onPress={() => {
+                  const nextLatitudeDelta = Math.max(
+                    currentRegion.latitudeDelta * 0.55,
+                    0.003,
+                  );
+                  const nextLongitudeDelta = Math.max(
+                    currentRegion.longitudeDelta * 0.55,
+                    0.003,
+                  );
+
+                  mapRef.current?.animateToRegion(
+                    {
+                      latitude: item.latitude,
+                      longitude: item.longitude,
+                      latitudeDelta: nextLatitudeDelta,
+                      longitudeDelta: nextLongitudeDelta,
+                    },
+                    280,
+                  );
+                }}
                 tracksViewChanges={false}
                 anchor={{ x: 0.5, y: 0.5 }}
               >
@@ -420,6 +635,7 @@ export default function MapScreen() {
                 longitude: item.longitude,
               }}
               title={item.event.title}
+              onPress={() => openEventSheet(item.event)}
               tracksViewChanges={false}
               anchor={{ x: 0.5, y: 1 }}
             >
@@ -438,8 +654,66 @@ export default function MapScreen() {
         accessibilityRole="button"
         accessibilityLabel="Reset map view"
       >
-        <Text style={styles.resetButtonIcon}>◎</Text>
+        <Ionicons name="contract-outline" size={24} color="#1f2937" />
       </Pressable>
+      {isSheetVisible && !!displayedEvent && (
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: "#ffffff",
+              borderColor: theme.colors.primaryDark,
+              transform: [{ translateY: sheetTranslateY }],
+            },
+          ]}
+        >
+          <View style={styles.sheetHandle} />
+          <View style={styles.sheetTopRow}>
+            <Text
+              style={[styles.sheetDateText, { color: theme.colors.gray800 }]}
+            >
+              {eventDate ?? "Datums nav pieejams"}
+            </Text>
+            <Pressable
+              onPress={closeEventSheet}
+              style={[
+                styles.sheetCloseButton,
+                {
+                  borderColor: theme.colors.gray400,
+                  backgroundColor: "#ffffff",
+                },
+              ]}
+            >
+              <Ionicons
+                name="close-outline"
+                size={18}
+                color={theme.colors.accent}
+              />
+            </Pressable>
+          </View>
+          <View
+            style={[
+              styles.timeChip,
+              {
+                backgroundColor: theme.colors.accent,
+                borderColor: theme.colors.primaryDark,
+              },
+            ]}
+          >
+            <Text style={[styles.timeChipText, { color: theme.colors.white }]}>
+              {eventTimeLabel}
+            </Text>
+          </View>
+          <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>
+            {displayedEvent.title}
+          </Text>
+          <Text
+            style={[styles.sheetDescription, { color: theme.colors.gray800 }]}
+          >
+            {displayedEvent.description?.trim() || "Papildteksts nav pieejams."}
+          </Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -473,6 +747,67 @@ const styles = StyleSheet.create({
     color: "#1f2937",
     fontWeight: "700",
     lineHeight: 22,
+  },
+  sheet: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: SHEET_HEIGHT,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+    zIndex: 40,
+  },
+  sheetHandle: {
+    alignSelf: "center",
+    width: 42,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#d1d5db",
+    marginBottom: 10,
+  },
+  sheetTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  sheetDateText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  sheetCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  timeChip: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  timeChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  sheetTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 8,
+  },
+  sheetDescription: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   clusterBubble: {
     minWidth: 34,
